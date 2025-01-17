@@ -72,9 +72,9 @@ public class DeploymentImpl implements Deployment {
     private volatile Map<String, String> mimeExtensionMappings;
     private volatile SessionManager sessionManager;
     @Deprecated
-    private volatile Charset defaultCharset = StandardCharsets.ISO_8859_1;
-    private volatile Charset defaultRequestCharset = StandardCharsets.ISO_8859_1;
-    private volatile Charset defaultResponseCharset = StandardCharsets.ISO_8859_1;
+    private volatile Charset defaultCharset = StandardCharsets.UTF_8;
+    private volatile Charset defaultRequestCharset = StandardCharsets.UTF_8;
+    private volatile Charset defaultResponseCharset = StandardCharsets.UTF_8;
 
 
 

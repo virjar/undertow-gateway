@@ -42,6 +42,41 @@ netty本身具备压缩功能，简单方式可以直接在netty侧直接开启)
 
 在springboot-web中排除tomcat的依赖，然后增加本项目依赖，即可将webserver切换为本项目的undertow
 
+### maven
+```xml
+<dependencies>
+    <!-- exludes embedded Tomcat -->
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+        <exclusions>
+            <exclusion>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-tomcat</artifactId>
+            </exclusion>
+        </exclusions>
+    </dependency>
+    <!-- include this netty servlet container -->
+    <dependency>
+        <groupId>com.virjar</groupId>
+        <artifactId>undertow-gateway</artifactId>
+        <version>1.0</version>
+    </dependency>
+</dependencies>
+```
+
+### gradle
+```kotlin
+dependencies {
+    implementation("org.springframework.boot:spring-boot-starter-web") {
+        exclude(group = "org.apache.logging.log4j", module = "log4j-to-slf4j")
+        exclude(group = "org.springframework.boot", module = "spring-boot-starter-tomcat")
+    }
+    implementation("jakarta.servlet:jakarta.servlet-api:5.0.0")
+    implementation("com.virjar:undertow-gateway:1.0")
+}
+```
+## 案例如下
 ### 案例1：托管websocket
 
 其中 ``WebsocketDispatcher``是你的自定义流量处理器，这样所有的websocket就会被您的netty处理器托管，而不会进入undertow服务器

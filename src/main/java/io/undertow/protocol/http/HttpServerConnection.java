@@ -51,6 +51,7 @@ import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.undertow.UndertowMessages;
+import io.undertow.gateway.GatewayHandler;
 import io.undertow.io.IoCallback;
 import io.undertow.server.Connectors;
 import io.undertow.server.HttpContinue;
@@ -103,6 +104,7 @@ public class HttpServerConnection extends ServerConnection {
 
     private final int bufferSize;
     private final boolean direct;
+    private final GatewayHandler.GatewayCallback gatewayCallback;
 
     /**
      * If this flag is set then the request is current running through a
@@ -135,12 +137,13 @@ public class HttpServerConnection extends ServerConnection {
 
     private volatile IoCallback<ByteBuf> readCallback;
 
-    public HttpServerConnection(ChannelHandlerContext ctx, Executor executor, SSLSessionInfo sslSessionInfo, int bufferSize, boolean direct) {
+    public HttpServerConnection(ChannelHandlerContext ctx, Executor executor, SSLSessionInfo sslSessionInfo, int bufferSize, boolean direct, GatewayHandler.GatewayCallback gatewayCallback) {
         this.ctx = ctx;
         this.executor = executor;
         this.sslSessionInfo = sslSessionInfo;
         this.bufferSize = bufferSize;
         this.direct = direct;
+        this.gatewayCallback = gatewayCallback;
     }
 
 
@@ -242,9 +245,10 @@ public class HttpServerConnection extends ServerConnection {
     protected ByteBuf allocateBuffer() {
         return allocateBuffer(direct);
     }
+
     @Override
     protected ByteBuf allocateBuffer(boolean direct) {
-        if(direct) {
+        if (direct) {
             return ctx.channel().alloc().directBuffer(bufferSize);
         } else {
             return ctx.channel().alloc().heapBuffer(bufferSize);
@@ -253,7 +257,7 @@ public class HttpServerConnection extends ServerConnection {
 
     @Override
     protected ByteBuf allocateBuffer(boolean direct, int bufferSize) {
-        if(direct) {
+        if (direct) {
             return ctx.channel().alloc().directBuffer(bufferSize);
         } else {
             return ctx.channel().alloc().heapBuffer(bufferSize);
@@ -262,12 +266,13 @@ public class HttpServerConnection extends ServerConnection {
 
     @Override
     protected ByteBuf allocateBuffer(int bufferSize) {
-        if(direct) {
+        if (direct) {
             return ctx.channel().alloc().directBuffer(bufferSize);
         } else {
             return ctx.channel().alloc().heapBuffer(bufferSize);
         }
     }
+
     /**
      * @return The connections worker
      */
@@ -308,7 +313,7 @@ public class HttpServerConnection extends ServerConnection {
     }
 
     protected void close(HttpServerExchange currentExchange) {
-        if(this.currentExchange == currentExchange) {
+        if (this.currentExchange == currentExchange) {
             ctx.channel().close().syncUninterruptibly();
         }
     }
@@ -346,18 +351,20 @@ public class HttpServerConnection extends ServerConnection {
 
     @Override
     protected void beginExecutingHandlerChain(HttpServerExchange exchange) {
-        if(exchange != currentExchange) {
+        if (exchange != currentExchange) {
             return;
         }
+        gatewayLog("beginExecutingHandlerChain");
         //TODO: can we just use one var for this?
         inHandlerChain = true;
         canInvokeIoCallback = false;
     }
 
     protected void endExecutingHandlerChain(HttpServerExchange exchange) {
-        if(exchange != currentExchange) {
+        if (exchange != currentExchange) {
             return;
         }
+        gatewayLog("endExecutingHandlerChain");
         inHandlerChain = false;
         canInvokeIoCallback = true;
 
@@ -510,7 +517,7 @@ public class HttpServerConnection extends ServerConnection {
 
     @Override
     protected <T> void scheduleIoCallback(IoCallback<T> callback, T context, HttpServerExchange exchange) {
-        if(exchange != currentExchange) {
+        if (exchange != currentExchange) {
             callback.onException(exchange, context, new ClosedChannelException());
         }
         queuedCallbacks.add(new QueuedCallback(callback, context));
@@ -538,7 +545,7 @@ public class HttpServerConnection extends ServerConnection {
 
     public ChannelFuture write(ByteBuf data, boolean last, HttpServerExchange exchange, boolean flush) {
         if (exchange != this.currentExchange || responseComplete) {
-            if(data == null && last) {
+            if (data == null && last) {
                 DefaultChannelPromise defaultChannelPromise = new DefaultChannelPromise(ctx.channel());
                 defaultChannelPromise.setSuccess();
                 return defaultChannelPromise;
@@ -585,7 +592,7 @@ public class HttpServerConnection extends ServerConnection {
                 resp = new DefaultLastHttpContent(data);
             }
         } else {
-            DefaultFullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(exchange.getStatusCode()), data == null ? Unpooled.EMPTY_BUFFER : data,exchange.responseHeaders(), EmptyHttpHeaders.INSTANCE);
+            DefaultFullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(exchange.getStatusCode()), data == null ? Unpooled.EMPTY_BUFFER : data, exchange.responseHeaders(), EmptyHttpHeaders.INSTANCE);
             response.headers().remove(HttpHeaderNames.TRANSFER_ENCODING);
             if (!response.headers().contains(HttpHeaderNames.CONTENT_LENGTH)) {
                 response.headers().add(HttpHeaderNames.CONTENT_LENGTH, data == null ? 0 : data.readableBytes());
@@ -631,7 +638,7 @@ public class HttpServerConnection extends ServerConnection {
 
     @Override
     protected void readAsync(IoCallback<ByteBuf> callback, HttpServerExchange exchange) {
-        if(exchange != currentExchange) {
+        if (exchange != currentExchange) {
             callback.onException(exchange, null, new ClosedChannelException());
         }
         this.readCallback = callback;
@@ -699,7 +706,7 @@ public class HttpServerConnection extends ServerConnection {
 
     @Override
     public ByteBuf readBlocking(HttpServerExchange exchange) throws IOException {
-        if(exchange != currentExchange) {
+        if (exchange != currentExchange) {
             throw new ClosedChannelException();
         }
         ByteBuf buf = null;
@@ -720,7 +727,7 @@ public class HttpServerConnection extends ServerConnection {
 
     @Override
     protected int readBytesAvailable(HttpServerExchange exchange) {
-        if(exchange != currentExchange) {
+        if (exchange != currentExchange) {
             return -1;
         }
         int c = 0;
@@ -747,6 +754,7 @@ public class HttpServerConnection extends ServerConnection {
 
     public void addData(HttpContent msg) {
         if (discardMode) {
+            gatewayCallback.log(ctx, "discardMode,discard http content");
             msg.content().release();
             return;
         }
@@ -757,6 +765,7 @@ public class HttpServerConnection extends ServerConnection {
         }
         if (msg instanceof LastHttpContent) {
             contents.add(LAST);
+            gatewayCallback.log(ctx, "add last httpContent");
         }
         if (readCallback != null && canInvokeIoCallback) {
             runIoCallbackLoop();
@@ -764,6 +773,13 @@ public class HttpServerConnection extends ServerConnection {
     }
 
     public void closed(IOException e) {
+        if ((e instanceof ClosedChannelException)) {
+            // this is normal close
+            gatewayCallback.log(ctx, "channel closed");
+        } else {
+            // this is exception close
+            gatewayCallback.log(ctx, "channel closed", e);
+        }
         closedException = e;
         int count = 0;
         if (currentExchange != null) {
@@ -793,5 +809,20 @@ public class HttpServerConnection extends ServerConnection {
             this.callback = callback;
             this.context = context;
         }
+    }
+
+    @Override
+    public void gatewayLog(String message) {
+        gatewayCallback.log(ctx, message);
+    }
+
+    @Override
+    public void gatewayLog(String message, Throwable throwable) {
+        gatewayCallback.log(ctx, message, throwable);
+    }
+
+    @Override
+    public void callOnServletDispatch(String requestURL) {
+        gatewayCallback.onServletDispatch(ctx, requestURL);
     }
 }

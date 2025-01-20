@@ -14,17 +14,17 @@
  */
 package io.undertow.protocol.http;
 
-import java.util.concurrent.ExecutorService;
-
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLEngine;
-
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.http.HttpServerCodec;
 import io.netty.handler.ssl.SslHandler;
+import io.undertow.gateway.GatewayHandler;
 import io.undertow.server.HttpHandler;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
+import java.util.concurrent.ExecutorService;
 
 /**
  * 这是undertow的流程，因为需要实现对websocket的托管，所以需要侵入到http协议的识别中途，本类不再使用
@@ -39,13 +39,16 @@ public class NettyHttpServerInitializer extends ChannelInitializer<SocketChannel
     private final SSLContext sslCtx;
     private final int bufferSize;
     private final boolean directBuffers;
+    private final GatewayHandler.GatewayCallback gatewayCallback;
 
-    public NettyHttpServerInitializer(ExecutorService blockingExecutor, HttpHandler rootHandler, SSLContext sslCtx, int bufferSize, boolean directBuffers) {
+    public NettyHttpServerInitializer(ExecutorService blockingExecutor, HttpHandler rootHandler, SSLContext sslCtx,
+                                      int bufferSize, boolean directBuffers, GatewayHandler.GatewayCallback gatewayCallback) {
         this.blockingExecutor = blockingExecutor;
         this.rootHandler = rootHandler;
         this.sslCtx = sslCtx;
         this.bufferSize = bufferSize;
         this.directBuffers = directBuffers;
+        this.gatewayCallback = gatewayCallback;
     }
 
     @Override
@@ -60,6 +63,6 @@ public class NettyHttpServerInitializer extends ChannelInitializer<SocketChannel
             p.addLast(sslHandler);
         }
         p.addLast(new HttpServerCodec());
-        p.addLast(new NettyHttpServerHandler(blockingExecutor, rootHandler, engine, bufferSize, directBuffers));
+        p.addLast(new NettyHttpServerHandler(blockingExecutor, rootHandler, engine, bufferSize, directBuffers, gatewayCallback));
     }
 }

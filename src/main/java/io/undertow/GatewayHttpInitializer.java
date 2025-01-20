@@ -57,8 +57,13 @@ public class GatewayHttpInitializer extends SimpleChannelInboundHandler<HttpObje
         gatewayCallback.log(ctx, "http request: " + httpRequest);
         ChannelPipeline pipeline = ctx.pipeline();
         if (!nettyHttpHook(ctx, httpRequest)) {
-            NettyHttpServerHandler nettyHttpServerHandler = new NettyHttpServerHandler(blockingExecutor, rootHandler, null, bufferSize, directBuffers);
+            // add by virjar: undertow没有加超时控制，发现客户端有连接keep-alive，但是没有主动关闭，导致连接存在泄漏问题
+            // 不过超时本身不太好设计，所以这里直接搞一个10分钟没有读取的超时信号
+            pipeline.addFirst(new IdleStateHandler(600, 0, 0));
+            NettyHttpServerHandler nettyHttpServerHandler = new NettyHttpServerHandler(blockingExecutor, rootHandler, null,
+                    bufferSize, directBuffers, gatewayCallback);
             pipeline.addLast(nettyHttpServerHandler);
+            gatewayCallback.enterUndertowWebServer(ctx, httpRequest);
         }
         pipeline.remove(this);
     }
@@ -66,9 +71,9 @@ public class GatewayHttpInitializer extends SimpleChannelInboundHandler<HttpObje
     private boolean nettyHttpHook(ChannelHandlerContext ctx, HttpRequest httpRequest) {
         for (GatewayHandler.NettyHttpMatcher nettyHttpMatcher : nettyHttpMatchers) {
             if (!nettyHttpMatcher.match(httpRequest)) {
-                gatewayCallback.log(ctx, "netty serve request detected");
                 continue;
             }
+            gatewayCallback.log(ctx, "netty serve request detected");
             // websocket请求，在netty层面处理，因为tomcat几乎没有能力处理websocket，其网络api就是原生的二进制流
             ChannelPipeline pipeline = ctx.pipeline();
             pipeline.addLast(

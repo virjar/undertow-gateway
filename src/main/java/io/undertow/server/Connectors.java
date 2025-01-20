@@ -26,6 +26,7 @@ import java.util.concurrent.RejectedExecutionException;
 
 import io.netty.buffer.ByteBuf;
 import io.undertow.UndertowLogger;
+import io.undertow.gateway.GatewayHandler;
 import io.undertow.server.handlers.Cookie;
 import io.undertow.util.DateUtils;
 import io.undertow.util.HeaderMap;
@@ -294,6 +295,7 @@ public class Connectors {
     }
 
     public static void executeRootHandler(final HttpHandler handler, final HttpServerExchange exchange) {
+        ServerConnection connection = exchange.getConnection();
         try {
             exchange.getConnection().beginExecutingHandlerChain(exchange);
             handler.handleRequest(exchange);
@@ -326,6 +328,7 @@ public class Connectors {
                 exchange.getConnection().runResumeReadWrite();
             }
         } catch (Throwable t) {
+            connection.gatewayLog("executeRootHandler exception", t);
             exchange.putAttachment(DefaultResponseListener.EXCEPTION, t);
             exchange.getConnection().endExecutingHandlerChain(exchange);
             if (!exchange.isResponseStarted()) {

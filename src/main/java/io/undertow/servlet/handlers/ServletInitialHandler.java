@@ -18,11 +18,10 @@
 
 package io.undertow.servlet.handlers;
 
-import java.security.AccessController;
-import java.security.PrivilegedExceptionAction;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
+import io.undertow.server.ServerConnection;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
@@ -77,8 +76,16 @@ public class ServletInitialHandler implements HttpHandler, ServletDispatcher {
     private final HttpHandler dispatchHandler = new HttpHandler() {
         @Override
         public void handleRequest(final HttpServerExchange exchange) throws Exception {
+            ServerConnection connection = exchange.getConnection();
+            connection.callOnServletDispatch(exchange.getRequestURL());
             final ServletRequestContext servletRequestContext = exchange.getAttachment(ServletRequestContext.ATTACHMENT_KEY);
-            dispatchRequest(exchange, servletRequestContext, servletRequestContext.getOriginalServletPathMatch().getServletChain(), DispatcherType.REQUEST);
+            try {
+                dispatchRequest(exchange, servletRequestContext, servletRequestContext.getOriginalServletPathMatch().getServletChain(), DispatcherType.REQUEST);
+                connection.gatewayLog("servlet dispatch end");
+            } catch (Exception e) {
+                connection.gatewayLog("servlet dispatch error", e);
+                throw e;
+            }
 //            if (System.getSecurityManager() == null) {
 //                dispatchRequest(exchange, servletRequestContext, servletRequestContext.getOriginalServletPathMatch().getServletChain(), DispatcherType.REQUEST);
 //            } else {

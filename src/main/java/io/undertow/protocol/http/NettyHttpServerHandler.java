@@ -17,6 +17,8 @@ package io.undertow.protocol.http;
 import java.io.IOException;
 import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.net.ssl.SSLEngine;
 
@@ -26,8 +28,10 @@ import io.netty.handler.codec.http.HttpContent;
 import io.netty.handler.codec.http.HttpObject;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.LastHttpContent;
+import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.concurrent.Future;
 import io.netty.util.concurrent.GenericFutureListener;
+import io.undertow.gateway.GatewayHandler;
 import io.undertow.server.ConnectionSSLSessionInfo;
 import io.undertow.server.Connectors;
 import io.undertow.server.HttpHandler;
@@ -46,13 +50,17 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<HttpObje
 
     private HttpServerConnection connection;
     private boolean expectingEmpty;
+    private final GatewayHandler.GatewayCallback gatewayCallback;
 
-    public NettyHttpServerHandler(ExecutorService blockingExecutor, HttpHandler rootHandler, SSLEngine engine, int bufferSize, boolean directBuffers) {
+    public NettyHttpServerHandler(ExecutorService blockingExecutor, HttpHandler rootHandler,
+                                  SSLEngine engine, int bufferSize, boolean directBuffers,
+                                  GatewayHandler.GatewayCallback gatewayCallback) {
         this.blockingExecutor = blockingExecutor;
         this.rootHandler = rootHandler;
         this.engine = engine;
         this.bufferSize = bufferSize;
         this.directBuffers = directBuffers;
+        this.gatewayCallback = gatewayCallback;
     }
 
     @Override
@@ -61,23 +69,20 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<HttpObje
     }
 
 
-
     @Override
     public void channelRead0(ChannelHandlerContext ctx, HttpObject msg) {
         if (msg instanceof HttpRequest) {
-            HttpRequest request = (HttpRequest) msg;
+            AtomicReference<HttpRequest> request = new AtomicReference<>((HttpRequest) msg);
             if (connection == null) {
-                connection = new HttpServerConnection(ctx, blockingExecutor, engine == null ? null : new ConnectionSSLSessionInfo(engine.getSession()), bufferSize, directBuffers);
-                ctx.channel().closeFuture().addListener(new GenericFutureListener<Future<? super Void>>() {
-                    @Override
-                    public void operationComplete(Future<? super Void> future) throws Exception {
-                        connection.closed(new ClosedChannelException());
-                    }
+                connection = new HttpServerConnection(ctx, blockingExecutor, engine == null ? null : new ConnectionSSLSessionInfo(engine.getSession()),
+                        bufferSize, directBuffers, gatewayCallback);
+                ctx.channel().closeFuture().addListener(future -> {
+                    connection.closed(new ClosedChannelException());
                 });
             }
-            HttpServerExchange exchange = new HttpServerExchange(connection, request.headers());
-            Connectors.setExchangeRequestPath(exchange, request.uri(), "UTF-8", true, false, new StringBuilder());
-            exchange.requestMethod(request.method().name());
+            HttpServerExchange exchange = new HttpServerExchange(connection, request.get().headers());
+            Connectors.setExchangeRequestPath(exchange, request.get().uri(), "UTF-8", true, false, new StringBuilder());
+            exchange.requestMethod(request.get().method().name());
             if (engine == null) {
                 exchange.setRequestScheme("http");
             } else {
@@ -87,8 +92,8 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<HttpObje
             if (msg instanceof HttpContent) {
                 connection.addData((HttpContent) msg);
             }
-            if (!request.headers().contains(HttpHeaderNames.CONTENT_LENGTH) &&
-                    !request.headers().contains(HttpHeaderNames.TRANSFER_ENCODING)) {
+            if (!request.get().headers().contains(HttpHeaderNames.CONTENT_LENGTH) &&
+                    !request.get().headers().contains(HttpHeaderNames.TRANSFER_ENCODING)) {
                 expectingEmpty = true;
                 Connectors.terminateRequest(exchange);
             } else if (msg instanceof LastHttpContent) {
@@ -107,8 +112,18 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<HttpObje
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        cause.printStackTrace();
+        gatewayCallback.log(ctx, "netty handler caught exception", cause);
         connection.closed(new IOException(cause));
         ctx.close();
+    }
+
+    @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+        if (evt instanceof IdleStateEvent event) {
+            gatewayCallback.log(ctx, "read timeout:" + event);
+            exceptionCaught(ctx, new TimeoutException("read timeout"));
+            return;
+        }
+        super.userEventTriggered(ctx, evt);
     }
 }

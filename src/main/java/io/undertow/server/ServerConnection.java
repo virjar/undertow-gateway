@@ -27,7 +27,6 @@ import java.util.function.Consumer;
 import javax.net.ssl.SSLSession;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http.HttpHeaders;
@@ -46,6 +45,7 @@ public abstract class ServerConnection extends AbstractAttachable {
 
 
     protected abstract ByteBuf allocateBuffer();
+
     protected abstract ByteBuf allocateBuffer(boolean direct);
 
     protected abstract ByteBuf allocateBuffer(boolean direct, int bufferSize);
@@ -53,13 +53,11 @@ public abstract class ServerConnection extends AbstractAttachable {
     protected abstract ByteBuf allocateBuffer(int bufferSize);
 
     /**
-     *
      * @return The connections worker
      */
     public abstract Executor getWorker();
 
     /**
-     *
      * @return The IO thread associated with the connection
      */
     public abstract EventExecutor getIoThread();
@@ -79,13 +77,11 @@ public abstract class ServerConnection extends AbstractAttachable {
     protected abstract <T> void scheduleIoCallback(IoCallback<T> callback, T context, HttpServerExchange exchange);
 
     /**
-     *
      * @return <code>true</code> if this connection supports sending a 100-continue response
      */
     public abstract boolean isContinueResponseSupported();
 
     /**
-     *
      * @return true if the connection is open
      */
     public abstract boolean isOpen();
@@ -93,9 +89,8 @@ public abstract class ServerConnection extends AbstractAttachable {
     protected abstract void close(HttpServerExchange exchange);
 
     /**
-     *
      * Gets the SSLSession of the underlying connection, or null if SSL is not in use.
-     *
+     * <p>
      * Note that for client cert auth {@link #getSslSessionInfo()} should be used instead, as it
      * takes into account other information potentially provided by load balancers that terminate SSL
      *
@@ -108,6 +103,7 @@ public abstract class ServerConnection extends AbstractAttachable {
     /**
      * Returns the actual address of the remote connection. This will not take things like X-Forwarded-for
      * into account.
+     *
      * @return The address of the remote peer
      */
     public abstract SocketAddress getPeerAddress();
@@ -123,7 +119,7 @@ public abstract class ServerConnection extends AbstractAttachable {
      * into account.
      *
      * @param type The type of address to return
-     * @param <A> The address type
+     * @param <A>  The address type
      * @return The remote endpoint address
      */
     public abstract <A extends SocketAddress> A getPeerAddress(Class<A> type);
@@ -148,7 +144,7 @@ public abstract class ServerConnection extends AbstractAttachable {
     /**
      * Sets the current SSL information. This can be used by handlers to setup SSL
      * information that was provided by a front end proxy.
-     *
+     * <p>
      * If this is being set of a per request basis then you must ensure that it is either
      * cleared by an exchange completion listener at the end of the request, or is always
      * set for every request. Otherwise it is possible to SSL information to 'leak' between
@@ -166,13 +162,11 @@ public abstract class ServerConnection extends AbstractAttachable {
     public abstract void addCloseListener(CloseListener listener);
 
     /**
-     *
      * @return true if this connection supports HTTP upgrade
      */
     protected abstract boolean isUpgradeSupported();
 
     /**
-     *
      * @return <code>true</code> if this connection supports the HTTP CONNECT verb
      */
     protected abstract boolean isConnectSupported();
@@ -188,13 +182,16 @@ public abstract class ServerConnection extends AbstractAttachable {
 
     /**
      * Reads some data from the exchange. Can only be called if {@link #isReadDataAvailable()} returns true.
-     *
+     * <p>
      * Returns null when all data is full read
+     *
      * @return
      * @throws IOException
      */
     protected abstract void readAsync(IoCallback<ByteBuf> callback, HttpServerExchange exchange);
+
     protected abstract ByteBuf readBlocking(HttpServerExchange exchange) throws IOException;
+
     protected abstract int readBytesAvailable(HttpServerExchange exchange);
 
     /**
@@ -214,13 +211,12 @@ public abstract class ServerConnection extends AbstractAttachable {
 
     /**
      * Attempts to push a resource if this connection supports server push. Otherwise the request is ignored.
-     *
+     * <p>
      * Note that push is always done on a best effort basis, even if this method returns true it is possible that
      * the remote endpoint will reset the stream
      *
-     *
-     * @param path The path of the resource
-     * @param method The request method
+     * @param path           The path of the resource
+     * @param method         The request method
      * @param requestHeaders The request headers
      * @return <code>true</code> if the server attempted the push, false otherwise
      */
@@ -230,15 +226,14 @@ public abstract class ServerConnection extends AbstractAttachable {
 
     /**
      * Attempts to push a resource if this connection supports server push. Otherwise the request is ignored.
-     *
+     * <p>
      * Note that push is always done on a best effort basis, even if this method returns true it is possible that
      * the remote endpoint will reset the stream.
-     *
+     * <p>
      * The {@link io.undertow.server.HttpHandler} passed in will be used to generate the pushed response
      *
-     *
-     * @param path The path of the resource
-     * @param method The request method
+     * @param path           The path of the resource
+     * @param method         The request method
      * @param requestHeaders The request headers
      * @return <code>true</code> if the server attempted the push, false otherwise
      */
@@ -257,10 +252,11 @@ public abstract class ServerConnection extends AbstractAttachable {
     public abstract void runResumeReadWrite();
 
     public abstract <T> void writeFileAsync(RandomAccessFile file, long position, long count, HttpServerExchange exchange, IoCallback<T> context, T callback);
+
     public abstract void writeFileBlocking(RandomAccessFile file, long position, long count, HttpServerExchange exchange) throws IOException;
 
 
-    protected  void setUpgradeListener(Consumer<ChannelHandlerContext> listener) {
+    protected void setUpgradeListener(Consumer<ChannelHandlerContext> listener) {
         throw UndertowMessages.MESSAGES.upgradeNotSupported();
     }
 
@@ -271,5 +267,15 @@ public abstract class ServerConnection extends AbstractAttachable {
     public interface CloseListener {
 
         void closed(final ServerConnection connection);
+    }
+
+    public void gatewayLog(String message) {
+    }
+
+    public void gatewayLog(String message, Throwable throwable) {
+    }
+
+    public void callOnServletDispatch(String requestURL){
+
     }
 }

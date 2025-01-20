@@ -18,6 +18,7 @@
 
 package io.undertow;
 
+import io.netty.handler.codec.http.HttpRequest;
 import io.undertow.gateway.GatewayHandler;
 import io.undertow.gateway.Protocols;
 import io.netty.bootstrap.ServerBootstrap;
@@ -157,7 +158,7 @@ public final class Undertow {
                             pipeline.addLast(new HttpServerCodec());
                             pipeline.addLast(new GatewayHttpInitializer(gatewayCallback, nettyHttpMatchers, worker, rootHandler, bufferSize, directBuffers));
 
-                            GatewayHandler.ProtocolMatcher.slowAttachDetect(context, GatewayHttpInitializer.class, 60_000);
+                            GatewayHandler.ProtocolMatcher.slowAttackDetect(context, GatewayHttpInitializer.class, 60_000);
                         }
                     });
 //                    matchers.add(new Protocols.SSL() {
@@ -682,6 +683,16 @@ public final class Undertow {
         @Override
         public void onAllMatchMiss(ChannelHandlerContext ctx, ByteBuf buf) {
             log(ctx, "unknown protocol");
+        }
+
+        @Override
+        public void enterUndertowWebServer(ChannelHandlerContext ctx, HttpRequest httpRequest) {
+
+        }
+
+        @Override
+        public void onServletDispatch(ChannelHandlerContext ctx, String requestURL) {
+
         }
 
         @Override

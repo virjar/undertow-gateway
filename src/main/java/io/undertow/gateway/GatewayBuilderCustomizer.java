@@ -3,6 +3,7 @@ package io.undertow.gateway;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.http.HttpRequest;
 import io.undertow.Undertow;
 import jakarta.servlet.Servlet;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,6 +59,16 @@ public class GatewayBuilderCustomizer implements UndertowBuilderCustomizer {
         @Override
         public void onAllMatchMiss(ChannelHandlerContext ctx, ByteBuf buf) {
             gatewayCallbacks.forEach(callback -> callback.onAllMatchMiss(ctx, buf));
+        }
+
+        @Override
+        public void enterUndertowWebServer(ChannelHandlerContext ctx, HttpRequest httpRequest) {
+            gatewayCallbacks.forEach(callback -> callback.enterUndertowWebServer(ctx, httpRequest));
+        }
+
+        @Override
+        public void onServletDispatch(ChannelHandlerContext ctx, String requestURL) {
+            gatewayCallbacks.forEach(callback -> callback.onServletDispatch(ctx, requestURL));
         }
 
         @Override

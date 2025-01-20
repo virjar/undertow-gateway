@@ -99,6 +99,10 @@ public class GatewayHandler extends ChannelInboundHandlerAdapter {
 
         void onAllMatchMiss(ChannelHandlerContext ctx, ByteBuf buf);
 
+        void enterUndertowWebServer(ChannelHandlerContext ctx,HttpRequest httpRequest);
+
+        void onServletDispatch(ChannelHandlerContext ctx, String requestURL);
+
         void log(ChannelHandlerContext ctx, String msg);
 
         void log(ChannelHandlerContext ctx, String msg, Throwable cause);
@@ -125,7 +129,16 @@ public class GatewayHandler extends ChannelInboundHandlerAdapter {
          */
         void handlePipeline(ChannelHandlerContext context, ChannelPipeline pipeline);
 
+        /**
+         * @deprecated because of typo
+         */
+        @Deprecated
         static void slowAttachDetect(ChannelHandlerContext ctx, Class<? extends ChannelHandler> middleHandlerClass,
+                                     long timeout) {
+            slowAttackDetect(ctx, middleHandlerClass, timeout);
+        }
+
+        static void slowAttackDetect(ChannelHandlerContext ctx, Class<? extends ChannelHandler> middleHandlerClass,
                                      long timeout) {
             WeakReference<Channel> ref = new WeakReference<>(ctx.channel());
             ctx.executor().schedule(() -> {

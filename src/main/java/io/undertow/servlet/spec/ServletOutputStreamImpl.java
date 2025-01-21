@@ -202,17 +202,27 @@ public class ServletOutputStreamImpl extends ServletOutputStream {
         if (anyAreSet(state, FLAG_CLOSED)) {
             return;
         }
+//        try {
+//            if (pooledBuffer != null) {
+//                exchange.writeBlocking(pooledBuffer, false);
+//                pooledBuffer = null;
+//            }
+//        } catch (Exception e) {
+//            if (pooledBuffer != null) {
+//                pooledBuffer.release();
+//                pooledBuffer = null;
+//            }
+//            throw new IOException(e);
+//        }
+        // by virjar: 对于netty来说，对象传递到谁，谁负责销毁，undertow原逻辑在报错的时候，在外面调用release，可能导致double free问题
         try {
             if (pooledBuffer != null) {
                 exchange.writeBlocking(pooledBuffer, false);
-                pooledBuffer = null;
             }
         } catch (Exception e) {
-            if (pooledBuffer != null) {
-                pooledBuffer.release();
-                pooledBuffer = null;
-            }
             throw new IOException(e);
+        } finally {
+            pooledBuffer = null;
         }
     }
 

@@ -188,6 +188,9 @@ public final class Undertow {
                                     gatewayCallback.onChannelInit(ch);
                                     GatewayHandler gatewayHandler = new GatewayHandler(gatewayCallback, lowLevelMatchers);
                                     ch.pipeline().addLast(gatewayHandler);
+
+                                    // 发现有客户端发起tcp连接之后，没有任何负载请求过来，也不关闭连接，运行很久之后将会耗尽fd，所以这里增加一个检测，如果90s还没有任何流量过来，那么需要关闭连接
+                                    GatewayHandler.ProtocolMatcher.slowAttackDetect(ch.pipeline().firstContext(), GatewayHandler.class, 90_000);
                                 }
                             })
                             .bind(listener.host, listener.port).sync().channel();

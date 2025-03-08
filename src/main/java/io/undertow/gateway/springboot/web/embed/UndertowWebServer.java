@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-package org.springframework.boot.web.embedded.undertow;
+package io.undertow.gateway.springboot.web.embed;
 
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
 import io.undertow.Undertow;
 import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
@@ -361,7 +362,7 @@ public class UndertowWebServer implements WebServer {
     }
 
     /**
-     * {@link HttpHandlerFactory} to wrap a closable.
+     * {@link org.springframework.boot.web.embedded.undertow.HttpHandlerFactory} to wrap a closable.
      */
     private static final class CloseableHttpHandlerFactory implements HttpHandlerFactory {
 
@@ -421,4 +422,7 @@ public class UndertowWebServer implements WebServer {
 
     }
 
+    public ChannelFuture bind(String host, int port) {
+        return undertow.bind(host, port);
+    }
 }

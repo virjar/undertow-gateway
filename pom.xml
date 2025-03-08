@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.virjar</groupId>
     <artifactId>undertow-gateway</artifactId>
-    <version>1.1</version>
+    <version>1.2</version>
     <packaging>jar</packaging>
     <name>undertow-gateway</name>
     <description>a Java web server based on Undertow,support multiple protocol coding on netty framework</description>

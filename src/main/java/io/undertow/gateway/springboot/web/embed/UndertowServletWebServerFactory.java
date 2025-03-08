@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.springframework.boot.web.embedded.undertow;
+package io.undertow.gateway.springboot.web.embed;
 
 import io.undertow.Undertow.Builder;
 import io.undertow.server.HttpHandler;
@@ -58,7 +58,7 @@ import java.util.regex.Pattern;
 
 /**
  * {@link ServletWebServerFactory} that can be used to create
- * {@link UndertowServletWebServer}s.
+ * {@link org.springframework.boot.web.embedded.undertow.UndertowServletWebServer}s.
  * <p>
  * Unless explicitly configured otherwise, the factory will create servers that listen for
  * HTTP requests on port 8080.
@@ -67,7 +67,7 @@ import java.util.regex.Pattern;
  * @author Andy Wilkinson
  * @author Marcos Barbero
  * @author Eddú Meléndez
- * @see UndertowServletWebServer
+ * @see org.springframework.boot.web.embedded.undertow.UndertowServletWebServer
  * @since 2.0.0
  */
 public class UndertowServletWebServerFactory extends AbstractServletWebServerFactory
@@ -128,7 +128,7 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
     }
 
     /**
-     * Returns a mutable collection of the {@link UndertowBuilderCustomizer}s that will be
+     * Returns a mutable collection of the {@link org.springframework.boot.web.embedded.undertow.UndertowBuilderCustomizer}s that will be
      * applied to the Undertow {@link Builder}.
      *
      * @return the customizers that will be applied
@@ -206,7 +206,7 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
     }
 
     /**
-     * Set {@link UndertowDeploymentInfoCustomizer}s that should be applied to the
+     * Set {@link org.springframework.boot.web.embedded.undertow.UndertowDeploymentInfoCustomizer}s that should be applied to the
      * Undertow {@link DeploymentInfo}. Calling this method will replace any existing
      * customizers.
      *
@@ -218,7 +218,7 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
     }
 
     /**
-     * Add {@link UndertowDeploymentInfoCustomizer}s that should be used to customize the
+     * Add {@link org.springframework.boot.web.embedded.undertow.UndertowDeploymentInfoCustomizer}s that should be used to customize the
      * Undertow {@link DeploymentInfo}.
      *
      * @param customizers the customizers to add
@@ -229,7 +229,7 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
     }
 
     /**
-     * Returns a mutable collection of the {@link UndertowDeploymentInfoCustomizer}s that
+     * Returns a mutable collection of the {@link org.springframework.boot.web.embedded.undertow.UndertowDeploymentInfoCustomizer}s that
      * will be applied to the Undertow {@link DeploymentInfo}.
      *
      * @return the customizers that will be applied
@@ -444,15 +444,15 @@ public class UndertowServletWebServerFactory extends AbstractServletWebServerFac
     }
 
     /**
-     * Factory method called to create the {@link UndertowServletWebServer}. Subclasses
-     * can override this method to return a different {@link UndertowServletWebServer} or
+     * Factory method called to create the {@link org.springframework.boot.web.embedded.undertow.UndertowServletWebServer}. Subclasses
+     * can override this method to return a different {@link org.springframework.boot.web.embedded.undertow.UndertowServletWebServer} or
      * apply additional processing to the {@link Builder} and {@link DeploymentManager}
      * used to bootstrap Undertow
      *
      * @param builder the builder
      * @param manager the deployment manager
      * @param port    the port that Undertow should listen on
-     * @return a new {@link UndertowServletWebServer} instance
+     * @return a new {@link org.springframework.boot.web.embedded.undertow.UndertowServletWebServer} instance
      */
     protected UndertowServletWebServer getUndertowWebServer(Builder builder, DeploymentManager manager, int port) {
         List<HttpHandlerFactory> initialHandlerFactories = new ArrayList<>();

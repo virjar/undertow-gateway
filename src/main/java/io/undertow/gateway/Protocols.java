@@ -21,28 +21,28 @@ public class Protocols {
 
 
         @Override
-        public int match(ChannelHandlerContext context, ByteBuf buf) {
+        public MATCH_STATUS match(ChannelHandlerContext context, ByteBuf buf) {
             if (buf.readableBytes() < 8) {
-                return PENDING;
+                return MATCH_STATUS.PENDING;
             }
 
             int index = buf.indexOf(0, 8, (byte) ' ');
             if (index < 0) {
-                return MISMATCH;
+                return MATCH_STATUS.MISMATCH;
             }
 
             int firstURIIndex = index + 1;
             if (buf.readableBytes() < firstURIIndex + 1) {
-                return PENDING;
+                return MATCH_STATUS.PENDING;
             }
 
             String method = buf.toString(0, index, US_ASCII);
             char firstURI = (char) (buf.getByte(firstURIIndex + buf.readerIndex()) & 0xff);
             if (!methods.contains(method) || firstURI != '/') {
-                return MISMATCH;
+                return MATCH_STATUS.MISMATCH;
             }
 
-            return MATCH;
+            return MATCH_STATUS.MATCH;
         }
     }
 
@@ -57,28 +57,28 @@ public class Protocols {
 
 
         @Override
-        public int match(ChannelHandlerContext context, ByteBuf buf) {
+        public MATCH_STATUS match(ChannelHandlerContext context, ByteBuf buf) {
             if (buf.readableBytes() < 8) {
-                return PENDING;
+                return MATCH_STATUS.PENDING;
             }
 
             int index = buf.indexOf(0, 8, (byte) ' ');
             if (index < 0) {
-                return MISMATCH;
+                return MATCH_STATUS.MISMATCH;
             }
 
             int firstURIIndex = index + 1;
             if (buf.readableBytes() < firstURIIndex + 1) {
-                return PENDING;
+                return MATCH_STATUS.PENDING;
             }
 
             String method = buf.toString(0, index, US_ASCII);
             char firstURI = (char) (buf.getByte(firstURIIndex + buf.readerIndex()) & 0xff);
             if (!methods.contains(method) || firstURI == '/') {
-                return MISMATCH;
+                return MATCH_STATUS.MISMATCH;
             }
 
-            return MATCH;
+            return MATCH_STATUS.MATCH;
         }
     }
 
@@ -86,17 +86,17 @@ public class Protocols {
     public abstract static class HttpsProxy implements GatewayHandler.ProtocolMatcher {
 
         @Override
-        public int match(ChannelHandlerContext context, ByteBuf buf) {
+        public MATCH_STATUS match(ChannelHandlerContext context, ByteBuf buf) {
             if (buf.readableBytes() < 8) {
-                return PENDING;
+                return MATCH_STATUS.PENDING;
             }
 
             String method = buf.toString(0, 8, US_ASCII);
             if (!"CONNECT ".equalsIgnoreCase(method)) {
-                return MISMATCH;
+                return MATCH_STATUS.MISMATCH;
             }
 
-            return MATCH;
+            return MATCH_STATUS.MATCH;
         }
     }
 
@@ -106,33 +106,33 @@ public class Protocols {
     public static abstract class Socks5 implements GatewayHandler.ProtocolMatcher {
 
         @Override
-        public int match(ChannelHandlerContext context, ByteBuf buf) {
+        public MATCH_STATUS match(ChannelHandlerContext context, ByteBuf buf) {
             if (buf.readableBytes() < 2) {
-                return PENDING;
+                return MATCH_STATUS.PENDING;
             }
             byte first = buf.getByte(buf.readerIndex());
             byte second = buf.getByte(buf.readerIndex() + 1);
             if (first == 5) {
-                return MATCH;
+                return MATCH_STATUS.MATCH;
             }
-            return MISMATCH;
+            return MATCH_STATUS.MISMATCH;
         }
     }
 
     public abstract static class SSL implements GatewayHandler.ProtocolMatcher {
 
         @Override
-        public int match(ChannelHandlerContext context, ByteBuf buf) {
+        public MATCH_STATUS match(ChannelHandlerContext context, ByteBuf buf) {
             if (buf.readableBytes() < 3) {
-                return PENDING;
+                return MATCH_STATUS.PENDING;
             }
             byte first = buf.getByte(buf.readerIndex());
             byte second = buf.getByte(buf.readerIndex() + 1);
             byte third = buf.getByte(buf.readerIndex() + 2);
             if (first == 22 && second <= 3 && third <= 3) {
-                return MATCH;
+                return MATCH_STATUS.MATCH;
             }
-            return MISMATCH;
+            return MATCH_STATUS.MISMATCH;
         }
     }
 

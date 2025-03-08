@@ -129,88 +129,11 @@ public final class Undertow {
                 final HttpHandler rootHandler = listener.rootHandler != null ? listener.rootHandler : this.rootHandler;
                 if (listener.type == ListenerType.AJP) {
                     throw new RuntimeException("NYI");
-//                    AjpOpenListener openListener = new AjpOpenListener(buffers, serverOptions);
-//                    openListener.setRootHandler(rootHandler);
-//
-//                    final ChannelListener<StreamConnection> finalListener;
-//                    if (listener.useProxyProtocol) {
-//                        finalListener = new ProxyProtocolOpenListener(openListener, null, buffers, UndertowOptionMap.EMPTY);
-//                    } else {
-//                        finalListener = openListener;
-//                    }
-//                    ChannelListener<AcceptingChannel<StreamConnection>> acceptListener = ChannelListeners.openListenerAdapter(finalListener);
-//                    OptionMap.Builder builder = OptionMap.builder().addAll(socketOptions);
-//
-//                    for (Map.Entry<UndertowOption<?>, Object> i : listener.overrideSocketOptions) {
-//                        builder.set((Option) XnioUndertowOptions.key(i.getKey()), i.getValue());
-//                    }
-//                    OptionMap socketOptionsWithOverrides = builder.getMap();
-//                    AcceptingChannel<? extends StreamConnection> server = worker.createStreamConnectionServer(new InetSocketAddress(Inet4Address.getByName(listener.host), listener.port), acceptListener, socketOptionsWithOverrides);
-//                    server.resumeAccepts();
-//                    channels.add(server);
-//                    listenerInfo.add(new ListenerInfo("ajp", server.getLocalAddress(), openListener, null, server));
                 } else if (listener.type == ListenerType.HTTP || listener.type == ListenerType.HTTPS) {
-                    ArrayList<GatewayHandler.ProtocolMatcher> matchers = new ArrayList<>();
-                    // http 协议需要直接放到第一个，这样用户扩展就只能实现其他协议，无法干预http协议的动作
-                    matchers.add(new Protocols.HttpPlain() {
-                        @Override
-                        public void handlePipeline(ChannelHandlerContext context, ChannelPipeline pipeline) {
-                            pipeline.addLast(new HttpServerCodec());
-                            pipeline.addLast(new GatewayHttpInitializer(gatewayCallback, nettyHttpMatchers, worker, rootHandler, bufferSize, directBuffers));
-
-                            GatewayHandler.ProtocolMatcher.slowAttackDetect(context, GatewayHttpInitializer.class, 60_000);
-                        }
-                    });
-//                    matchers.add(new Protocols.SSL() {
-//
-//                        @Override
-//                        public void handlePipeline(ChannelHandlerContext context, ChannelPipeline pipeline) {
-//                            SSLContext sslCtx;
-//                            if (listener.sslContext != null) {
-//                                sslCtx = listener.sslContext;
-//                            } else {
-//                                sslCtx = SSLContext.getInstance("TLS");
-//                                sslCtx.init(listener.keyManagers, listener.trustManagers, new SecureRandom());
-//                            }
-//                            pipeline.addLast(sslContext.newHandler(pipeline.channel().alloc()));
-//                            pipeline.addLast(new GatewayHandler(gatewayCallback, protocolMatchers.toArray(new GatewayHandler.ProtocolMatcher[]{})));
-//                        }
-//                    });
-
-                    matchers.addAll(protocolMatchers);
-                    GatewayHandler.ProtocolMatcher[] lowLevelMatchers = matchers.toArray(new GatewayHandler.ProtocolMatcher[]{});
-
-                    Channel ch = bootstrap()
-                            //.childHandler(new NettyHttpServerInitializer(worker, rootHandler, null, bufferSize, directBuffers))
-                            .childHandler(new ChannelInitializer<>() {
-                                @Override
-                                protected void initChannel(Channel ch) throws Exception {
-                                    gatewayCallback.onChannelInit(ch);
-                                    GatewayHandler gatewayHandler = new GatewayHandler(gatewayCallback, lowLevelMatchers);
-                                    ch.pipeline().addLast(gatewayHandler);
-                                }
-                            })
-                            .bind(listener.host, listener.port).sync().channel();
-
+                    Channel ch = bind(listener.host, listener.port).sync().channel();
                     channels.add(ch);
                     listenerInfo.add(new ListenerInfo("http", ch.localAddress(), null));
                 }
-//                else if (listener.type == ListenerType.HTTPS) {
-//
-//                    SSLContext sslCtx;
-//                    if (listener.sslContext != null) {
-//                        sslCtx = listener.sslContext;
-//                    } else {
-//                        sslCtx = SSLContext.getInstance("TLS");
-//                        sslCtx.init(listener.keyManagers, listener.trustManagers, new SecureRandom());
-//                    }
-//                    Channel ch = bootstrap()
-//                            .childHandler(new NettyHttpServerInitializer(worker, rootHandler, sslCtx, bufferSize, directBuffers))
-//                            .bind(listener.host, listener.port).sync().channel();
-//
-//                    channels.add(ch);
-//                    listenerInfo.add(new ListenerInfo("https", ch.localAddress(), null));
-//                }
             }
 
         } catch (Exception e) {
@@ -219,6 +142,37 @@ public final class Undertow {
             }
             throw new RuntimeException(e);
         }
+    }
+
+    public ChannelFuture bind(String host, int port) {
+        ArrayList<GatewayHandler.ProtocolMatcher> matchers = new ArrayList<>();
+        // http 协议需要直接放到第一个，这样用户扩展就只能实现其他协议，无法干预http协议的动作
+        matchers.add(new Protocols.HttpPlain() {
+            @Override
+            public void handlePipeline(ChannelHandlerContext context, ChannelPipeline pipeline) {
+                pipeline.addLast(new HttpServerCodec());
+                pipeline.addLast(new GatewayHttpInitializer(gatewayCallback, nettyHttpMatchers, worker, rootHandler, bufferSize, directBuffers));
+
+                GatewayHandler.ProtocolMatcher.slowAttackDetect(context, GatewayHttpInitializer.class, 60_000);
+            }
+        });
+        matchers.addAll(protocolMatchers);
+        GatewayHandler.ProtocolMatcher[] lowLevelMatchers = matchers.toArray(new GatewayHandler.ProtocolMatcher[]{});
+
+        return bootstrap()
+                //.childHandler(new NettyHttpServerInitializer(worker, rootHandler, null, bufferSize, directBuffers))
+                .childHandler(new ChannelInitializer<>() {
+                    @Override
+                    protected void initChannel(Channel ch) throws Exception {
+                        gatewayCallback.onChannelInit(ch);
+                        GatewayHandler gatewayHandler = new GatewayHandler(gatewayCallback, lowLevelMatchers);
+                        ch.pipeline().addLast(gatewayHandler);
+
+                        // 发现有客户端发起tcp连接之后，没有任何负载请求过来，也不关闭连接，运行很久之后将会耗尽fd，所以这里增加一个检测，如果90s还没有任何流量过来，那么需要关闭连接
+                        GatewayHandler.ProtocolMatcher.slowAttackDetect(ch.pipeline().firstContext(), GatewayHandler.class, 90_000);
+                    }
+                })
+                .bind(host, port);
     }
 
 

@@ -14,10 +14,24 @@
  * limitations under the License.
  */
 
+package io.undertow.gateway.springboot.web.embed;
+
+import io.undertow.servlet.api.DeploymentInfo;
+
 /**
- * Embedded reactive and servlet web server implementations backed by Undertow.
+ * Callback interface that can be used to customize an Undertow {@link DeploymentInfo}.
  *
- * @see org.springframework.boot.web.embedded.undertow.UndertowServletWebServerFactory
- * @see org.springframework.boot.web.embedded.undertow.UndertowReactiveWebServerFactory
+ * @author Phillip Webb
+ * @since 2.0.0
+ * @see UndertowServletWebServerFactory
  */
-package org.springframework.boot.web.embedded.undertow;
+@FunctionalInterface
+public interface UndertowDeploymentInfoCustomizer {
+
+	/**
+	 * Customize the deployment info.
+	 * @param deploymentInfo the {@code DeploymentInfo} to customize
+	 */
+	void customize(DeploymentInfo deploymentInfo);
+
+}

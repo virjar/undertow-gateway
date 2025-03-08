@@ -48,15 +48,15 @@ public class GatewayHandler extends ChannelInboundHandlerAdapter {
         }
         boolean hasPending = false;
         for (ProtocolMatcher matcher : matcherList) {
-            int match = matcher.match(ctx, buf.duplicate());
-            if (match == ProtocolMatcher.MATCH) {
+            ProtocolMatcher.MATCH_STATUS match = matcher.match(ctx, buf.duplicate());
+            if (match == ProtocolMatcher.MATCH_STATUS.MATCH) {
                 matcher.handlePipeline(ctx, ctx.pipeline());
                 ctx.pipeline().remove(this);
                 ctx.fireChannelRead(buf);
                 return;
             }
 
-            if (match == ProtocolMatcher.PENDING) {
+            if (match == ProtocolMatcher.MATCH_STATUS.PENDING) {
                 gatewayCallback.log(ctx, "match pending..");
                 hasPending = true;
             }
@@ -99,7 +99,7 @@ public class GatewayHandler extends ChannelInboundHandlerAdapter {
 
         void onAllMatchMiss(ChannelHandlerContext ctx, ByteBuf buf);
 
-        void enterUndertowWebServer(ChannelHandlerContext ctx,HttpRequest httpRequest);
+        void enterUndertowWebServer(ChannelHandlerContext ctx, HttpRequest httpRequest);
 
         void onServletDispatch(ChannelHandlerContext ctx, String requestURL);
 
@@ -113,30 +113,22 @@ public class GatewayHandler extends ChannelInboundHandlerAdapter {
      */
     public interface ProtocolMatcher {
 
-        int MATCH = 1;
-        int MISMATCH = -1;
-        int PENDING = 0;
+        enum MATCH_STATUS {
+            MATCH, MISMATCH, PENDING
+        }
 
         /**
          * If match the protocol.
          *
          * @return 1:match, -1:not match, 0:still can not judge now
          */
-        int match(ChannelHandlerContext context, ByteBuf buf);
+        MATCH_STATUS match(ChannelHandlerContext context, ByteBuf buf);
 
         /**
          * Deal with the pipeline when matched
          */
         void handlePipeline(ChannelHandlerContext context, ChannelPipeline pipeline);
 
-        /**
-         * @deprecated because of typo
-         */
-        @Deprecated
-        static void slowAttachDetect(ChannelHandlerContext ctx, Class<? extends ChannelHandler> middleHandlerClass,
-                                     long timeout) {
-            slowAttackDetect(ctx, middleHandlerClass, timeout);
-        }
 
         static void slowAttackDetect(ChannelHandlerContext ctx, Class<? extends ChannelHandler> middleHandlerClass,
                                      long timeout) {

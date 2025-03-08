@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.springframework.boot.web.embedded.undertow;
+package io.undertow.gateway.springboot.web.embed;
 
 import java.io.Closeable;
 

@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-package org.springframework.boot.web.embedded.undertow;
+package io.undertow.gateway.springboot.web.embed;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
-import io.undertow.UndertowMessages;
 import io.undertow.server.handlers.resource.Resource;
 //import io.undertow.server.handlers.resource.ResourceChangeListener;
 import io.undertow.server.handlers.resource.ResourceManager;

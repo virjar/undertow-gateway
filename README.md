@@ -60,7 +60,7 @@ netty本身具备压缩功能，简单方式可以直接在netty侧直接开启)
     <dependency>
         <groupId>com.virjar</groupId>
         <artifactId>undertow-gateway</artifactId>
-        <version>1.0</version>
+        <version>1.2</version>
     </dependency>
 </dependencies>
 ```
@@ -73,7 +73,7 @@ dependencies {
         exclude(group = "org.springframework.boot", module = "spring-boot-starter-tomcat")
     }
     implementation("jakarta.servlet:jakarta.servlet-api:5.0.0")
-    implementation("com.virjar:undertow-gateway:1.0")
+    implementation("com.virjar:undertow-gateway:1.2")
 }
 ```
 ## 案例如下

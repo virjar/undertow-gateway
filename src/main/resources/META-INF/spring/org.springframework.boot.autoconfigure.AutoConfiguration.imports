@@ -1,1 +1,2 @@
 io.undertow.gateway.GatewayBuilderCustomizer
+io.undertow.gateway.springboot.web.servlet.EmbeddedUndertow

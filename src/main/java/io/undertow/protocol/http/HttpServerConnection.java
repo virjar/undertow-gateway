@@ -554,8 +554,37 @@ public class HttpServerConnection extends ServerConnection {
             defaultChannelPromise.setFailure(UndertowMessages.MESSAGES.exchangeAlreadyComplete());
             return defaultChannelPromise;
         }
+
+        // Apply response conduit (e.g. gzip/deflate compression) if registered
+        org.xnio.conduits.StreamSinkConduit conduit = exchange.getOrCreateResponseConduit();
+        if (conduit != null) {
+            try {
+                ByteBuf compressed = conduit.process(data, last);
+                if (data != null) {
+                    data.release();
+                }
+                if (last) {
+                    // Dispose conduit resources after final chunk
+                    conduit.dispose();
+                }
+                data = compressed.readableBytes() > 0 ? compressed : null;
+            } catch (java.io.IOException e) {
+                gatewayCallback.log(ctx, "compression failed", e);
+                ctx.close();
+                DefaultChannelPromise p = new DefaultChannelPromise(ctx.channel());
+                p.setFailure(e);
+                return p;
+            }
+        }
+
         if (last) {
             return writeLast(data, exchange);
+        }
+        // For non-last writes, skip if compression produced no output
+        if (data == null) {
+            DefaultChannelPromise p = new DefaultChannelPromise(ctx.channel());
+            p.setSuccess();
+            return p;
         }
         if (responseCommited) {
             return ctx.writeAndFlush(new DefaultHttpContent(data));

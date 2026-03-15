@@ -197,10 +197,9 @@ class UndertowWebServerFactoryDelegate {
     static List<HttpHandlerFactory> createHttpHandlerFactories(Compression compression, boolean useForwardHeaders,
                                                                String serverHeader, Shutdown shutdown, HttpHandlerFactory... initialHttpHandlerFactories) {
         List<HttpHandlerFactory> factories = new ArrayList<>(Arrays.asList(initialHttpHandlerFactories));
-        // todo 当前服务器还不支持压缩能力
-//		if (compression != null && compression.getEnabled()) {
-//			factories.add(new CompressionHttpHandlerFactory(compression));
-//		}
+        if (compression != null && compression.getEnabled()) {
+            factories.add(new CompressionHttpHandlerFactory(compression));
+        }
         if (useForwardHeaders) {
             factories.add(Handlers::proxyPeerAddress);
         }

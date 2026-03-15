@@ -40,6 +40,7 @@ import io.undertow.util.*;
 import org.jboss.logging.Logger;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.util.concurrent.EventExecutor;
@@ -52,6 +53,8 @@ import io.undertow.io.Sender;
 import io.undertow.security.api.SecurityContext;
 import io.undertow.server.handlers.Cookie;
 import io.undertow.UndertowOptions;
+import io.undertow.util.HttpHeaderNames;
+import org.xnio.conduits.StreamSinkConduit;
 
 /**
  * An HTTP server request/response exchange.  An instance of this class is constructed as soon as the request headers are
@@ -177,6 +180,30 @@ public final class HttpServerExchange extends AbstractAttachable implements Buff
     private Receiver receiver;
 
     private long requestStartTime = -1;
+
+    /**
+     * Response conduit wrapper registered via addResponseWrapper() (e.g. for compression).
+     */
+    private ConduitWrapper<StreamSinkConduit> responseWrapper;
+
+    /**
+     * The active conduit created from responseWrapper. Created lazily on first write.
+     */
+    private StreamSinkConduit activeResponseConduit;
+
+    /**
+     * Passthrough conduit: returns data unchanged. Used as the base of the conduit chain.
+     */
+    private static final StreamSinkConduit PASSTHROUGH_CONDUIT = new StreamSinkConduit() {
+        @Override
+        public ByteBuf process(ByteBuf data, boolean last) {
+            return data != null ? data : Unpooled.EMPTY_BUFFER;
+        }
+
+        @Override
+        public void dispose() {
+        }
+    };
 
 
     /**
@@ -1082,6 +1109,49 @@ public final class HttpServerExchange extends AbstractAttachable implements Buff
      */
     public boolean isResponseStarted() {
         return allAreSet(state, FLAG_RESPONSE_SENT);
+    }
+
+    /**
+     * Returns true if the response channel is still available (i.e. response has not started).
+     * Used by EncodingHandler to decide whether compression can still be applied.
+     */
+    public boolean isResponseChannelAvailable() {
+        return !isResponseStarted();
+    }
+
+    /**
+     * Registers a response conduit wrapper (e.g. for gzip compression).
+     * Multiple wrappers can be registered; they will be composed in order.
+     */
+    public void addResponseWrapper(ConduitWrapper<StreamSinkConduit> wrapper) {
+        if (this.responseWrapper == null) {
+            this.responseWrapper = wrapper;
+        } else {
+            ConduitWrapper<StreamSinkConduit> existing = this.responseWrapper;
+            this.responseWrapper = (factory, exchange) -> wrapper.wrap(() -> existing.wrap(factory, exchange), exchange);
+        }
+    }
+
+    /**
+     * Returns the active StreamSinkConduit for this exchange, creating it on the first call.
+     * Returns null if no compression is needed (no wrapper registered, or wrapper resolves to passthrough).
+     * Also removes Content-Length when actual compression is applied (since the compressed size differs).
+     */
+    public StreamSinkConduit getOrCreateResponseConduit() {
+        if (responseWrapper == null) {
+            return null;
+        }
+        if (activeResponseConduit == null) {
+            activeResponseConduit = responseWrapper.wrap(() -> PASSTHROUGH_CONDUIT, this);
+            if (activeResponseConduit == null) {
+                activeResponseConduit = PASSTHROUGH_CONDUIT;
+            }
+            if (activeResponseConduit != PASSTHROUGH_CONDUIT) {
+                // Actual compression happening: remove Content-Length so chunked encoding is used
+                responseHeaders().remove(HttpHeaderNames.CONTENT_LENGTH);
+            }
+        }
+        return activeResponseConduit == PASSTHROUGH_CONDUIT ? null : activeResponseConduit;
     }
 
 

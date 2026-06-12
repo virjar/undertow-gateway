@@ -25,6 +25,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import io.netty.buffer.ByteBuf;
@@ -733,6 +734,8 @@ public class HttpServerConnection extends ServerConnection {
         }
     }
 
+    private static final long READ_BLOCKING_TIMEOUT_SECONDS = 60;
+
     @Override
     public ByteBuf readBlocking(HttpServerExchange exchange) throws IOException {
         if (exchange != currentExchange) {
@@ -740,10 +743,14 @@ public class HttpServerConnection extends ServerConnection {
         }
         ByteBuf buf = null;
         try {
-            buf = contents.takeFirst();
+            buf = contents.pollFirst(READ_BLOCKING_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException(e);
+        }
+        if (buf == null) {
+            // Timeout: no data received within the timeout window
+            throw new IOException("Read timeout: no data received within " + READ_BLOCKING_TIMEOUT_SECONDS + " seconds");
         }
         if (buf == LAST) {
             Connectors.terminateRequest(currentExchange);
